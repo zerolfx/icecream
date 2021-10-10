@@ -118,6 +118,8 @@ class Player:
         self.rng = rng
         self.logger = logger
         self.state = [0]
+        group_id = 1
+        self.group_id = group_id - 1
 
     def serve(self, top_layer: np.ndarray, curr_level: np.ndarray, player_idx: int,
               get_flavors: Callable[[], List[int]], get_player_count: Callable[[], int],
