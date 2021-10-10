@@ -118,7 +118,7 @@ class Player:
             turns = get_turns_received()
             players = list()
             for idx, turn in enumerate(turns):
-                if turn == min(turns) and idx != 0:
+                if turn == min(turns) and idx != self.group_id:
                     players.append(idx)
             self.state.append(0)
             # if we choose the person with the highest score
