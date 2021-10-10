@@ -32,8 +32,8 @@ def generate_choices(top_layer: np.ndarray, curr_level: np.ndarray) -> List[Choi
 
 
 def choose_next_player(now_turn: int, possible_players: List[int], served_situation: List[Dict[int, int]],
-                       top_layer: np.ndarray,
-                       curr_level: np.ndarray, rng: np.random.Generator, group_id: int) -> int:
+                       top_layer: np.ndarray, curr_level: np.ndarray, rng: np.random.Generator,
+                       group_id: int, my_flavor_preference: List[int]) -> int:
     if len(possible_players) == 1:
         return possible_players[0]
 
@@ -57,31 +57,37 @@ def choose_next_player(now_turn: int, possible_players: List[int], served_situat
             greedy_flavor_preference[player_index].append(flavor)
 
     max_score = -math.inf
-    next_player_list = set()
+    next_player_list = []
+    total_units = 24
+    # test weighted = 0.01, 0.1, 0.5, 0.8, 1 and find the performance of 0.5 is the best
+    # although I don't know why, but I guess we can test it for several rounds later
+    weighted = 0.5
+
     for player_index, flavor_preference in greedy_flavor_preference.items():
         score_list = []
         for choice in choices:
             score_list.append((score(choice, flavor_preference), len(choice.flavors)))
 
         score_list.sort(key=lambda x: -x[0])
-        remain = 24
+        remain = total_units
         player_max_score = 0
         for score_num, count in score_list:
-            if remain < 0:
+            if remain - count < 0:
                 break
             remain -= count
             player_max_score += score_num
 
+        player_max_score = player_max_score / (total_units - remain) \
+                           + weighted * difference(my_flavor_preference, flavor_preference)
+
         if max_score < player_max_score:
             max_score = player_max_score
-            next_player_list = set()
-            next_player_list.add(player_index)
+            next_player_list = [player_index]
         elif max_score == player_max_score:
-            next_player_list.add(player_index)
+            next_player_list.append(player_index)
 
     # if len(next_player_list) == 1, just return,
     # if the length is larger than 1, we may choose randomly choose a from the set
-    # or use a weighted function(still needs to think)
     if len(next_player_list) == 1:
         return list(next_player_list)[0]
     return rng.choice(list(next_player_list))
@@ -98,13 +104,22 @@ def score(choice: Choice, flavor_preference) -> float:
     return res
 
 
+def difference(my_flavor_preference: List[int], other_flavor_preference: List[int]) -> float:
+    sum_difference = 0.0
+    for i, flavor in enumerate(my_flavor_preference):
+        other_i = other_flavor_preference.index(flavor)
+        sum_difference += abs(i - other_i)
+    return sum_difference / len(my_flavor_preference)
+
+
 class Player:
     def __init__(self, flavor_preference: List[int], rng: np.random.Generator, logger: logging.Logger) -> None:
         self.flavor_preference = flavor_preference
         self.rng = rng
         self.logger = logger
         self.state = [0]
-        self.group_id = 1 - 1
+        group_id = 1
+        self.group_id = group_id - 1
 
     def serve(self, top_layer: np.ndarray, curr_level: np.ndarray, player_idx: int,
               get_flavors: Callable[[], List[int]], get_player_count: Callable[[], int],
@@ -123,7 +138,7 @@ class Player:
             self.state.append(0)
             # if we choose the person with the highest score
             next_player = choose_next_player(min(turns), players, get_served(), top_layer, curr_level, self.rng,
-                                             self.group_id)
+                                             self.group_id, self.flavor_preference)
             return dict(action="pass", values=next_player)
 
             # if we just randomly choose one person
@@ -136,6 +151,8 @@ class Player:
             for flavor in choice.flavors:
                 res -= self.flavor_preference.index(flavor)
             res /= len(choice.flavors)
+            # it seems that max_depth does have a positive impact on scoring after testing,
+            # but we should still test weight = 0.2
             res += choice.max_depth * 0.2
             res += 0.01 * len(choice.flavors)
             return res
