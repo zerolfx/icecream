@@ -10,15 +10,15 @@ import logging
 import argparse
 from players.random_player import Player as Random_Player
 from players.g1_player import Player as G1_Player
-from players.g2_player import Player as G2_Player
-from players.g3_player import Player as G3_Player
-from players.g4_player import Player as G4_Player
-from players.g5_player import Player as G5_Player
-from players.g6_player import Player as G6_Player
-from players.g7_player import Player as G7_Player
-from players.g8_player import Player as G8_Player
-from players.g9_player import Player as G9_Player
-from players.g10_player import Player as G10_Player
+from players.g1_player import Player as G2_Player
+from players.g1_player import Player as G3_Player
+from players.g1_player import Player as G4_Player
+from players.g1_player import Player as G5_Player
+from players.g1_player import Player as G6_Player
+from players.g1_player import Player as G7_Player
+from players.g1_player import Player as G8_Player
+from players.g1_player import Player as G9_Player
+from players.g1_player import Player as G10_Player
 
 root_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -48,7 +48,7 @@ class IceCreamGame(App):
         self.player_names = []
         self.player_preferences = []
         self.served = []
-        self.turns_received = np.zeros(0, dtype=np.int)
+        self.turns_received = np.zeros(0, dtype=int)
         self.player_scores = []
         self.next_player = -1
 
@@ -89,7 +89,7 @@ class IceCreamGame(App):
             self.player_preferences.append(player_preference)
             self.player_names.append(player_name)
             self.served.append({k: 0 for k in self.flavors})
-            self.turns_received = np.zeros(len(self.players), dtype=np.int)
+            self.turns_received = np.zeros(len(self.players), dtype=int)
             self.player_scores.append(0)
             self.total_turn_per_player = math.floor(120 / len(self.players))
         else:
@@ -190,10 +190,10 @@ class IceCreamGame(App):
                 if action_values_dict["action"] in ["scoop", "pass"]:
                     if action_values_dict["action"] == "scoop":
                         if len(action_values_dict["values"]) == 2:
-                            if np.issubdtype(type(action_values_dict["values"][0]), np.int) and np.issubdtype(type(action_values_dict["values"][1]), np.int):
+                            if np.issubdtype(type(action_values_dict["values"][0]), int) and np.issubdtype(type(action_values_dict["values"][1]), int):
                                 is_valid = True
                     elif action_values_dict["action"] == "pass":
-                        if np.issubdtype(type(action_values_dict["values"]), np.int):
+                        if np.issubdtype(type(action_values_dict["values"]), int):
                             is_valid = True
         return is_valid
 
@@ -394,8 +394,8 @@ class IceCreamContainer:
         self.l = 24  # cols
         self.w = 15  # rows
         self.h = 8  # height
-        self.container = np.empty((self.l, self.w, self.h), dtype=np.int)
-        self.curr_level = np.empty((self.l, self.w), dtype=np.int)
+        self.container = np.empty((self.l, self.w, self.h), dtype=int)
+        self.curr_level = np.empty((self.l, self.w), dtype=int)
 
         self.container = self.generate_type()
 
@@ -404,10 +404,10 @@ class IceCreamContainer:
                 self.curr_level[i, j] = self.h-1
 
     def generate_type(self):
-        empty_container = np.empty((self.l, self.w, self.h), dtype=np.int)
+        empty_container = np.empty((self.l, self.w, self.h), dtype=int)
 
         assert empty_container.size % len(self.flavors) == 0, "Number of flavors can't divide container size"
-        flavor_repeated = np.repeat(np.array(self.flavors, dtype=np.int), empty_container.size / len(self.flavors))
+        flavor_repeated = np.repeat(np.array(self.flavors, dtype=int), empty_container.size / len(self.flavors))
 
         flavor_assigned = self.rng.permutation(flavor_repeated)
 
@@ -426,7 +426,7 @@ class IceCreamContainer:
         return self.h
 
     def get_top_layer(self):
-        top_layer = np.empty((self.l, self.w), dtype=np.int)
+        top_layer = np.empty((self.l, self.w), dtype=int)
         for j in range(self.w):
             for i in range(self.l):
                 if self.curr_level[i, j] >= 0:
@@ -448,7 +448,7 @@ class IceCreamContainer:
                 for iter_i in range(i, i+2):
                     iter_k = self.curr_level[iter_i, iter_j]
                     heights.append(iter_k)
-            max_depth = np.amax(np.array(heights, dtype=np.int))
+            max_depth = np.amax(np.array(heights, dtype=int))
             for iter_j in range(j, j+2):
                 for iter_i in range(i, i+2):
                     iter_k = self.curr_level[iter_i, iter_j]

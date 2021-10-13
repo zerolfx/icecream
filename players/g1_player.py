@@ -37,66 +37,29 @@ def generate_choices(top_layer: np.ndarray, curr_level: np.ndarray) -> List[Choi
     return res
 
 
-def choose_next_player(now_turn: int, possible_players: List[int], served_situation: List[Dict[int, int]],
-                       top_layer: np.ndarray, curr_level: np.ndarray, rng: np.random.Generator,
-                       my_flavor_preference: List[int]) -> int:
-    # if now_turn = 0, it means for the first turn, we just randomly choose a person to pass to
-    if now_turn == 0 and len(possible_players) != 0:
-        return rng.choice(possible_players)
-
-    choices = generate_choices(top_layer, curr_level)
-
-    # if all ice cream has been taken, only happen in the last turn of last round
-    if not choices:
-        return rng.choice(list(possible_players))
-
-    greedy_flavor_preference = list()
-    for served_state in served_situation:
-        greedy_flavor_preference.append(sorted(served_state.keys(), key=lambda k: -served_state[k]))
-
-    max_score = -math.inf
-    next_player = None
-
-    for player_index in possible_players:
-        flavor_preference = greedy_flavor_preference[player_index]
-        score_list = []
-        for choice in choices:
-            score_list.append((score(choice, flavor_preference), len(choice.flavors)))
-
-        score_list.sort(key=lambda x: -x[0])
-        remain = TOTAL_UNITS
-        player_max_score = 0
-        for score_num, count in score_list:
-            if remain - count < 0:
-                break
-            remain -= count
-            player_max_score += score_num
-
-        player_max_score = player_max_score / (TOTAL_UNITS - remain) + WEIGHT * difference(my_flavor_preference, flavor_preference)
-
-        if max_score < player_max_score:
-            max_score = player_max_score
-            next_player = player_index
-
-    return next_player
+def activate(x: float) -> float:
+    return x
 
 
-def score(choice: Choice, flavor_preference) -> float:
-    res = 0
-    for flavor in choice.flavors:
-        res -= flavor_preference.index(flavor)
-    res /= len(choice.flavors)
-    res += choice.max_depth * 0.2
-    res -= 0.01 * len(choice.flavors)
+def estimate_preference(history: Dict[int, int]) -> Dict[int, float]:
+    s = sum(map(activate, history.values()))
+    res = dict()
+    for k, v in history.items():
+        res[k] = activate(v) / s
     return res
 
 
-def difference(my_flavor_preference: List[int], other_flavor_preference: List[int]) -> float:
-    sum_difference = 0.0
-    for i, flavor in enumerate(my_flavor_preference):
-        other_i = other_flavor_preference.index(flavor)
-        sum_difference += abs(i - other_i)
-    return sum_difference / len(my_flavor_preference)
+def score(choice: Choice, preferences: Dict[int, float]) -> float:
+    res = 0
+    for v in choice.flavors:
+        res += preferences[v]
+    return res
+
+
+def score_all(preferences: Dict[int, float], choices: List[Choice]) -> float:
+    scores = sorted(list(map(functools.partial(score, preferences=preferences), choices)), reverse=True)
+    logging.info(scores)
+    return sum(scores[:48])
 
 
 class Player:
@@ -111,9 +74,9 @@ class Player:
               get_served: Callable[[], List[Dict[int, int]]], get_turns_received: Callable[[], List[int]]
               ) -> Dict[str, Union[Tuple[int, int], int]]:
         remain = 24 - self.state[-1]
-        choices = generate_choices(top_layer, curr_level)
-        choices = list(filter(lambda x: len(x.flavors) <= remain, choices))
-        self.logger.info(choices)
+        all_choices = generate_choices(top_layer, curr_level)
+        choices = list(filter(lambda x: len(x.flavors) <= remain, all_choices))
+        # self.logger.info(choices)
         if not choices:
             turns = get_turns_received()
 
@@ -125,13 +88,26 @@ class Player:
                     if turn == min(turns) and idx != player_idx:
                         next_players.append(idx)
 
-            # if we choose the person with the highest score
-            next_player = choose_next_player(len(self.state), next_players, get_served(), top_layer, curr_level, self.rng,
-                                             self.flavor_preference)
+            if len(self.state) <= 4:
+                self.state.append(0)
+                return dict(action="pass", values=self.rng.choice(next_players))
+
+            estimated_preferences = list(map(estimate_preference, get_served()))
+            self.logger.debug(estimated_preferences)
+            next_player = max(next_players, key=lambda i: score_all(estimated_preferences[i], all_choices))
 
             self.state.append(0)
             return dict(action="pass", values=next_player)
 
-        choice = max(choices, key=functools.partial(score, flavor_preference=self.flavor_preference))
+        def f(choice: Choice) -> float:
+            res = 0
+            for flavor in choice.flavors:
+                res -= self.flavor_preference.index(flavor)
+            res /= len(choice.flavors)
+            res += choice.max_depth * 0.2
+            res -= 0.01 * len(choice.flavors)
+            return res
+
+        choice = max(choices, key=f)
         self.state[-1] += len(choice.flavors)
         return dict(action='scoop', values=choice.index)
