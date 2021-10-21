@@ -93,7 +93,7 @@ class Player:
                 return dict(action="pass", values=self.rng.choice(next_players))
 
             estimated_preferences = list(map(estimate_preference, get_served()))
-            self.logger.debug(estimated_preferences)
+            # self.logger.debug(estimated_preferences)
             next_player = max(next_players, key=lambda i: score_all(estimated_preferences[i], all_choices))
 
             self.state.append(0)
