@@ -82,7 +82,7 @@ class Player:
 
             next_players = list()
             if len(set(turns)) == 1:  # last turn for current round
-                next_players = [i for i in range(len(turns)) if i != player_idx]
+                next_players = list(range(len(turns)))
             else:
                 for idx, turn in enumerate(turns):
                     if turn == min(turns) and idx != player_idx:
